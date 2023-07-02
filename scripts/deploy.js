@@ -8,7 +8,9 @@ const hre = require("hardhat");
 const ethers = require('ethers');
 async function main(address) {
 
-  ehr = await hre.ethers.deployContract("EHR");
+  ehr = await hre.ethers.deployContract(
+    "EHR",
+  );
 
   await ehr.waitForDeployment();
   console.log(
