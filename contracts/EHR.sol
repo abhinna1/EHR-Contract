@@ -25,7 +25,26 @@ contract EHR {
         string image;
         string description;
         Hospital hospital;
+
+        address[] permittedPatients;
+        address[] patientRequests;
     }
+
+    struct Record {
+        string file;
+        Doctor doctor;
+    }
+ 
+    struct Patient {
+        string fullName;
+        uint256 age;
+        Record[] records;
+        address[] accessRequests;
+    }
+
+
+    mapping(address=>Patient) public patients;
+    address[] patinetAddresses;
 
     // Mapping to store doctors by their address
     mapping(address => Doctor) public doctors;
@@ -36,7 +55,68 @@ contract EHR {
     address[] public hospitalAddresses;
     uint256 hospital_count = 0;
 
+
     string[] GENDERS = ["Male", "Female"];
+
+    modifier onlyPatient(){
+        require(patients[msg.sender].age>0, "Register first.");
+        _;
+    }
+
+
+    function registerPatient(string memory patientFullName, uint256 patientAge) public {
+        require(
+            (patients[msg.sender].age==0),
+            "Paitent already registered"
+        );
+        require(
+            bytes(patientFullName).length>=4,
+            "Patient name must be longer than 4 characters."
+        );
+        require(
+            patientAge>0,
+            "Invalid age."
+        );
+        Patient storage newPatient = patients[msg.sender];
+        newPatient.fullName = patientFullName;
+        newPatient.age = patientAge;
+        patinetAddresses.push(msg.sender);
+    }
+
+    
+    function getSelfData() public view onlyPatient returns (Patient memory){
+        return patients[msg.sender];
+    }
+
+    function requestPatientAccess(address patient_address) public onlyDoctor{
+        patients[patient_address].accessRequests.push(msg.sender);
+        doctors[msg.sender].patientRequests.push(patient_address);
+    }
+    function getAllDoctorRequests() public view onlyPatient returns (Doctor[] memory) {
+    Doctor[] memory doctor_list = new Doctor[](doctorAddresses.length);
+    uint256 index = 0;
+
+    for (uint256 i = 0; i < patinetAddresses.length; i++) {
+        Patient memory current_patient = patients[patinetAddresses[i]];
+        for (uint256 j = 0; j < current_patient.accessRequests.length; j++) {
+            Doctor memory current_doctor = doctors[current_patient.accessRequests[j]];
+            doctor_list[index] = current_doctor;
+            index++;
+        }
+    }
+
+    return doctor_list;
+}
+
+    // function acceptDoctorAccess(address doctorAddress) public onlyPatient {
+
+        
+    //     Patient memory current_patient = patients[msg.sender];
+    //     Doctor memory current_doctor  = doctors[msg.sender];
+    //     return current_doctor;
+    // }
+
+    // function getRequests(){}
 
     function isValidGender(string memory gender) private view returns (bool) {
         for (uint256 i = 0; i < GENDERS.length; i++) {
@@ -149,7 +229,9 @@ contract EHR {
             specialization: specialization,
             description: description,
             image: image,
-            hospital: hospitals[msg.sender]
+            hospital: hospitals[msg.sender],
+            permittedPatients: new address[](0),
+            patientRequests:new address[](0)
         });
         doctors[doctor_address] = new_doctor;
         doctor_count++;
