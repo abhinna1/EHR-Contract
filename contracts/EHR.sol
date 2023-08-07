@@ -1,116 +1,89 @@
 // SPDX-License-Identifier: GPL-3.0
 
 pragma solidity >=0.8.2 <0.9.0;
+import "./DoctorContract.sol";
 
-contract EHR {
+contract EHR is DoctorContract {
     // Structures.
 
     address public admin;
-
-    struct Hospital {
-        address hospitalAddress;
-        string name;
-        string location;
-        string description;
-        string image;
-    }
-
-    struct Doctor {
-        address doctorAddress;
-        string firstName;
-        string lastName;
-        uint256 age;
-        string gender;
-        string specialization;
-        string image;
-        string description;
-        Hospital hospital;
-
-        address[] permittedPatients;
-        address[] patientRequests;
-    }
 
     struct Record {
         string file;
         Doctor doctor;
     }
- 
+
     struct Patient {
         string fullName;
         uint256 age;
         Record[] records;
+        address[] approvedDoctors;
         address[] accessRequests;
     }
 
-
-    mapping(address=>Patient) public patients;
+    mapping(address => Patient) public patients;
     address[] patinetAddresses;
-
-    // Mapping to store doctors by their address
-    mapping(address => Doctor) public doctors;
-    address[] public doctorAddresses;
-    uint256 doctor_count = 0;
-    // Mapping to store hospitals by their address
-    mapping(address => Hospital) public hospitals;
-    address[] public hospitalAddresses;
-    uint256 hospital_count = 0;
-
 
     string[] GENDERS = ["Male", "Female"];
 
-    modifier onlyPatient(){
-        require(patients[msg.sender].age>0, "Register first.");
+    modifier onlyPatient() {
+        require(patients[msg.sender].age > 0, "Register first.");
         _;
     }
 
-
-    function registerPatient(string memory patientFullName, uint256 patientAge) public {
+    function registerPatient(string memory patientFullName, uint256 patientAge)
+        public
+    {
+        require((patients[msg.sender].age == 0), "Paitent already registered");
         require(
-            (patients[msg.sender].age==0),
-            "Paitent already registered"
-        );
-        require(
-            bytes(patientFullName).length>=4,
+            bytes(patientFullName).length >= 4,
             "Patient name must be longer than 4 characters."
         );
-        require(
-            patientAge>0,
-            "Invalid age."
-        );
+        require(patientAge > 0, "Invalid age.");
         Patient storage newPatient = patients[msg.sender];
         newPatient.fullName = patientFullName;
         newPatient.age = patientAge;
         patinetAddresses.push(msg.sender);
     }
 
-    
-    function getSelfData() public view onlyPatient returns (Patient memory){
+    function getSelfData() public view onlyPatient returns (Patient memory) {
         return patients[msg.sender];
     }
 
-    function requestPatientAccess(address patient_address) public onlyDoctor{
+    function requestPatientAccess(address patient_address) public onlyDoctor {
         patients[patient_address].accessRequests.push(msg.sender);
         doctors[msg.sender].patientRequests.push(patient_address);
     }
-    function getAllDoctorRequests() public view onlyPatient returns (Doctor[] memory) {
-    Doctor[] memory doctor_list = new Doctor[](doctorAddresses.length);
-    uint256 index = 0;
 
-    for (uint256 i = 0; i < patinetAddresses.length; i++) {
-        Patient memory current_patient = patients[patinetAddresses[i]];
-        for (uint256 j = 0; j < current_patient.accessRequests.length; j++) {
-            Doctor memory current_doctor = doctors[current_patient.accessRequests[j]];
-            doctor_list[index] = current_doctor;
-            index++;
+    function getAllDoctorRequests()
+        public
+        view
+        onlyPatient
+        returns (Doctor[] memory)
+    {
+        Doctor[] memory doctor_list = new Doctor[](doctorAddresses.length);
+        uint256 index = 0;
+
+        for (uint256 i = 0; i < patinetAddresses.length; i++) {
+            Patient memory current_patient = patients[patinetAddresses[i]];
+            for (
+                uint256 j = 0;
+                j < current_patient.accessRequests.length;
+                j++
+            ) {
+                Doctor memory current_doctor = doctors[
+                    current_patient.accessRequests[j]
+                ];
+                doctor_list[index] = current_doctor;
+                index++;
+            }
         }
-    }
 
-    return doctor_list;
-}
+        return doctor_list;
+    }
 
     // function acceptDoctorAccess(address doctorAddress) public onlyPatient {
 
-        
     //     Patient memory current_patient = patients[msg.sender];
     //     Doctor memory current_doctor  = doctors[msg.sender];
     //     return current_doctor;
@@ -201,6 +174,87 @@ contract EHR {
 
         return all_hospitals;
     }
+    function approveEHRRequest(address doctorAddress) public onlyPatient {
+        require(
+            patients[msg.sender].age > 0,
+            "Only registered patients can approve EHR requests."
+        );
+        require(
+            doctors[doctorAddress].age > 0,
+            "Invalid doctor address, only registered doctors can request access."
+        );
+
+        // Check if the requesting doctor is in the access requests list of the patient
+        address[] storage accessRequests = patients[msg.sender].accessRequests;
+        bool isRequestedDoctor = false;
+        for (uint256 i = 0; i < accessRequests.length; i++) {
+            if (accessRequests[i] == doctorAddress) {
+                isRequestedDoctor = true;
+                break;
+            }
+        }
+
+        require(
+            isRequestedDoctor,
+            "The requesting doctor is not in the access requests list."
+        );
+
+        // Add the doctor to the approvedDoctors list
+        address[] storage approvedDoctors = patients[msg.sender].approvedDoctors;
+        for (uint256 i = 0; i < approvedDoctors.length; i++) {
+            if (approvedDoctors[i] == doctorAddress) {
+                revert("Access already granted.");
+            }
+        }
+        approvedDoctors.push(doctorAddress);
+
+        // Remove the doctor from the accessRequests list
+        for (uint256 i = 0; i < accessRequests.length; i++) {
+            if (accessRequests[i] == doctorAddress) {
+                // Swap and pop technique to efficiently remove the element
+                accessRequests[i] = accessRequests[accessRequests.length - 1];
+                accessRequests.pop();
+                break;
+            }
+        }
+    }
+
+    function insertEHRRecord(
+        address patientAddress,
+        string memory file
+    ) public onlyDoctor {
+        // Check if the doctor is authorized to access the patient's records
+        // address[] storage permittedPatients = doctors[msg.sender].permittedPatients;
+        address [] storage permittedDoctors = patients[patientAddress].approvedDoctors;
+        bool isPermittedPatient = false;
+        for (uint256 i = 0; i < permittedDoctors.length; i++) {
+            if (permittedDoctors[i] == msg.sender) {
+                isPermittedPatient = true;
+                break;
+            }
+        }
+
+        require(
+            isPermittedPatient,
+            "You are not authorized to access this patient's records."
+        );
+
+        // Get the patient's records
+        Record[] storage patientRecords = patients[patientAddress].records;
+
+        // Create a new record
+        Record memory newRecord = Record({
+            file: file,
+            doctor: doctors[msg.sender]
+        });
+
+        // Add the new record to the patient's records
+        patientRecords.push(newRecord);
+    }
+
+    // function getApprovedDoctors() public returns (Doctor[] memory){
+    //     return doctors[msg.sender].doc
+    // } 
 
     // Doctor Functions.
     function addDoctor(
@@ -231,7 +285,7 @@ contract EHR {
             image: image,
             hospital: hospitals[msg.sender],
             permittedPatients: new address[](0),
-            patientRequests:new address[](0)
+            patientRequests: new address[](0)
         });
         doctors[doctor_address] = new_doctor;
         doctor_count++;
