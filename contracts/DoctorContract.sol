@@ -2,7 +2,8 @@
 
 pragma solidity >=0.8.2 <0.9.0;
 import "./HospitalContract.sol";
-contract DoctorContract is HospitalContract{
+
+contract DoctorContract is HospitalContract {
     struct Doctor {
         address doctorAddress;
         string firstName;
@@ -13,7 +14,6 @@ contract DoctorContract is HospitalContract{
         string image;
         string description;
         Hospital hospital;
-
         address[] permittedPatients;
         address[] patientRequests;
     }
@@ -21,4 +21,29 @@ contract DoctorContract is HospitalContract{
     mapping(address => Doctor) public doctors;
     address[] public doctorAddresses;
     uint256 doctor_count = 0;
+
+    function removeFromPatientRequests(
+        address doctorAddress,
+        address patientAddress
+    ) internal {
+        address[] storage patientRequests = doctors[doctorAddress]
+            .patientRequests;
+        for (uint256 i = 0; i < patientRequests.length; i++) {
+            if (patientRequests[i] == patientAddress) {
+                // Swap and pop technique to efficiently remove the element
+                patientRequests[i] = patientRequests[
+                    patientRequests.length - 1
+                ];
+                patientRequests.pop();
+                break;
+            }
+        }
+    }
+
+    function addToPermittedPatients(
+        address doctorAddress,
+        address patientAddress
+    ) internal {
+        doctors[doctorAddress].permittedPatients.push(patientAddress);
+    }
 }

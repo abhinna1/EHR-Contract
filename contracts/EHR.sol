@@ -11,9 +11,11 @@ contract EHR is DoctorContract {
     struct Record {
         string file;
         Doctor doctor;
+        string date;
     }
 
     struct Patient {
+        address PatientAddress;
         string fullName;
         uint256 age;
         Record[] records;
@@ -31,9 +33,10 @@ contract EHR is DoctorContract {
         _;
     }
 
-    function registerPatient(string memory patientFullName, uint256 patientAge)
-        public
-    {
+    function registerPatient(
+        string memory patientFullName,
+        uint256 patientAge
+    ) public {
         require((patients[msg.sender].age == 0), "Paitent already registered");
         require(
             bytes(patientFullName).length >= 4,
@@ -41,6 +44,7 @@ contract EHR is DoctorContract {
         );
         require(patientAge > 0, "Invalid age.");
         Patient storage newPatient = patients[msg.sender];
+        newPatient.PatientAddress = msg.sender;
         newPatient.fullName = patientFullName;
         newPatient.age = patientAge;
         patinetAddresses.push(msg.sender);
@@ -80,6 +84,64 @@ contract EHR is DoctorContract {
         }
 
         return doctor_list;
+    }
+
+    function getApprovedRequestsAsDoctor()
+        public
+        view
+        onlyDoctor
+        returns (Patient[] memory)
+    {
+        // Get the doctor's address
+        address doctorAddress = msg.sender;
+
+        // Get the doctor's approved patients
+        address[] memory approvedPatients = doctors[doctorAddress]
+            .permittedPatients;
+
+        // Create an array to store the approved patients
+        Patient[] memory approvedPatientList = new Patient[](
+            approvedPatients.length
+        );
+        uint256 index = 0;
+
+        // Retrieve the patients from the approvedPatients list
+        for (uint256 i = 0; i < approvedPatients.length; i++) {
+            address patientAddress = approvedPatients[i];
+            Patient memory patient = patients[patientAddress];
+            approvedPatientList[index] = patient;
+            index++;
+        }
+
+        return approvedPatientList;
+    }
+
+    function getPatientEHRs(
+        address patientAddress
+    ) public view onlyDoctor returns (Record[] memory) {
+        // Get the doctor's address
+        address doctorAddress = msg.sender;
+
+        // Check if the doctor is authorized to access the patient's records
+        address[] storage permittedDoctors = patients[patientAddress]
+            .approvedDoctors;
+        bool isPermittedDoctor = false;
+        for (uint256 i = 0; i < permittedDoctors.length; i++) {
+            if (permittedDoctors[i] == doctorAddress) {
+                isPermittedDoctor = true;
+                break;
+            }
+        }
+
+        require(
+            isPermittedDoctor,
+            "You are not authorized to access this patient's records."
+        );
+
+        // Get the patient's records
+        Record[] memory patientRecords = patients[patientAddress].records;
+
+        return patientRecords;
     }
 
     // function acceptDoctorAccess(address doctorAddress) public onlyPatient {
@@ -174,6 +236,7 @@ contract EHR is DoctorContract {
 
         return all_hospitals;
     }
+
     function approveEHRRequest(address doctorAddress) public onlyPatient {
         require(
             patients[msg.sender].age > 0,
@@ -200,7 +263,8 @@ contract EHR is DoctorContract {
         );
 
         // Add the doctor to the approvedDoctors list
-        address[] storage approvedDoctors = patients[msg.sender].approvedDoctors;
+        address[] storage approvedDoctors = patients[msg.sender]
+            .approvedDoctors;
         for (uint256 i = 0; i < approvedDoctors.length; i++) {
             if (approvedDoctors[i] == doctorAddress) {
                 revert("Access already granted.");
@@ -217,15 +281,23 @@ contract EHR is DoctorContract {
                 break;
             }
         }
+
+        // Remove the doctor from the accessRequests list
+        removeFromPatientRequests(doctorAddress, msg.sender);
+
+        // Add the patient to the permittedPatients list of the doctor
+        addToPermittedPatients(doctorAddress, msg.sender);
     }
 
     function insertEHRRecord(
         address patientAddress,
-        string memory file
+        string memory file,
+        string memory date
     ) public onlyDoctor {
         // Check if the doctor is authorized to access the patient's records
         // address[] storage permittedPatients = doctors[msg.sender].permittedPatients;
-        address [] storage permittedDoctors = patients[patientAddress].approvedDoctors;
+        address[] storage permittedDoctors = patients[patientAddress]
+            .approvedDoctors;
         bool isPermittedPatient = false;
         for (uint256 i = 0; i < permittedDoctors.length; i++) {
             if (permittedDoctors[i] == msg.sender) {
@@ -245,7 +317,8 @@ contract EHR is DoctorContract {
         // Create a new record
         Record memory newRecord = Record({
             file: file,
-            doctor: doctors[msg.sender]
+            doctor: doctors[msg.sender],
+            date: date
         });
 
         // Add the new record to the patient's records
@@ -254,7 +327,7 @@ contract EHR is DoctorContract {
 
     // function getApprovedDoctors() public returns (Doctor[] memory){
     //     return doctors[msg.sender].doc
-    // } 
+    // }
 
     // Doctor Functions.
     function addDoctor(
@@ -297,19 +370,15 @@ contract EHR is DoctorContract {
         return doctor_count;
     }
 
-    function get_doctor_by_address(address doctorAddress)
-        public
-        view
-        returns (Doctor memory)
-    {
+    function get_doctor_by_address(
+        address doctorAddress
+    ) public view returns (Doctor memory) {
         return doctors[doctorAddress];
     }
 
-    function get_doctors_by_hospital(address hospitalAddress)
-        public
-        view
-        returns (Doctor[] memory)
-    {
+    function get_doctors_by_hospital(
+        address hospitalAddress
+    ) public view returns (Doctor[] memory) {
         uint256 doctorsInHospitalCount = 0;
 
         // Count the number of doctors in the given hospital
@@ -341,11 +410,9 @@ contract EHR is DoctorContract {
         return doctorsInHospital;
     }
 
-    function get_hospital_by_address(address hospitalAddress)
-        public
-        view
-        returns (Hospital memory)
-    {
+    function get_hospital_by_address(
+        address hospitalAddress
+    ) public view returns (Hospital memory) {
         return hospitals[hospitalAddress];
     }
 
