@@ -17,7 +17,7 @@ module.exports = {
       url: "HTTP://127.0.0.1:8545",
 
       accounts: [
-        "0xe876d00b59a7418144a59c4ce6563026b73b9146f8145884fa5fcc5ad4555597",
+        "0x0f8a816a6e3e2de452d6a968e54968af24c30ab77494aa44d0d45de3605241e7",
       ],
     },
   },

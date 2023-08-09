@@ -289,6 +289,42 @@ contract EHR is DoctorContract {
         addToPermittedPatients(doctorAddress, msg.sender);
     }
 
+    function revokeDoctorAccess(address doctorAddress) public onlyPatient {
+        require(
+            patients[msg.sender].age > 0,
+            "Only registered patients can revoke doctor access."
+        );
+        require(
+            doctors[doctorAddress].age > 0,
+            "Invalid doctor address, only registered doctors can have access revoked."
+        );
+
+        // Check if the doctor is in the approved doctors list of the patient
+        address[] storage approvedDoctors = patients[msg.sender]
+            .approvedDoctors;
+        bool isApprovedDoctor = false;
+        uint256 approvedDoctorIndex;
+
+        for (uint256 i = 0; i < approvedDoctors.length; i++) {
+            if (approvedDoctors[i] == doctorAddress) {
+                isApprovedDoctor = true;
+                approvedDoctorIndex = i;
+                break;
+            }
+        }
+
+        require(isApprovedDoctor, "The doctor does not have access.");
+
+        // Remove the doctor from the approvedDoctors list
+        approvedDoctors[approvedDoctorIndex] = approvedDoctors[
+            approvedDoctors.length - 1
+        ];
+        approvedDoctors.pop();
+
+        // Remove the patient from the permittedPatients list of the doctor
+        removeFromPermittedPatients(doctorAddress, msg.sender);
+    }
+
     function insertEHRRecord(
         address patientAddress,
         string memory file,

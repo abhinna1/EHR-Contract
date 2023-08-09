@@ -22,6 +22,8 @@ contract DoctorContract is HospitalContract {
     address[] public doctorAddresses;
     uint256 doctor_count = 0;
 
+
+
     function removeFromPatientRequests(
         address doctorAddress,
         address patientAddress
@@ -46,4 +48,24 @@ contract DoctorContract is HospitalContract {
     ) internal {
         doctors[doctorAddress].permittedPatients.push(patientAddress);
     }
+
+    function removeFromPermittedPatients(
+        address doctorAddress,
+        address patientAddress
+    ) public {
+        address[] storage permittedPatients = doctors[doctorAddress]
+            .permittedPatients;
+
+        for (uint256 i = 0; i < permittedPatients.length; i++) {
+            if (permittedPatients[i] == patientAddress) {
+                permittedPatients[i] = permittedPatients[
+                    permittedPatients.length - 1
+                ];
+                permittedPatients.pop();
+                break;
+            }
+        }
+    }
+    
+
 }
