@@ -37,6 +37,11 @@ contract EHR is DoctorContract {
         return patients[msg.sender].age > 0;
     }
 
+    function isAdmin() public view returns(bool){
+        return msg.sender==admin;
+    }
+    
+
     function registerPatient(
         string memory patientFullName,
         uint256 patientAge
