@@ -33,6 +33,10 @@ contract EHR is DoctorContract {
         _;
     }
 
+    function isPatient() public view returns (bool) {
+        return patients[msg.sender].age > 0;
+    }
+
     function registerPatient(
         string memory patientFullName,
         uint256 patientAge

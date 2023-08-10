@@ -11,11 +11,12 @@ contract HospitalContract {
         string image;
     }
 
-
     // Mapping to store hospitals by their address
     mapping(address => Hospital) public hospitals;
     address[] public hospitalAddresses;
     uint256 hospital_count = 0;
 
-    
+    function isHospital() public view returns (bool) {
+        return bytes(hospitals[msg.sender].name).length > 0;
+    }
 }

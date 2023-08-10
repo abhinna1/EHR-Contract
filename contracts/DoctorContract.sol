@@ -22,7 +22,9 @@ contract DoctorContract is HospitalContract {
     address[] public doctorAddresses;
     uint256 doctor_count = 0;
 
-
+    function isDoctor() public view returns (bool) {
+        return doctors[msg.sender].age > 0;
+    }
 
     function removeFromPatientRequests(
         address doctorAddress,
